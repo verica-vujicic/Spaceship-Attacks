@@ -1,0 +1,203 @@
+import tkinter
+import time
+from tkinter import *
+
+# canvas parameters
+CANVAS_WIDTH = 1325
+CANVAS_HEIGHT = 700
+
+# ball parameters
+BALL_SIZE = 20
+STARTING_X = 10
+STARTING_Y = -7
+
+# paddle parameter
+PAD_SIZE = 105
+
+# spaceship brick parameters
+FIRST_X = 5
+FIRST_Y = 5
+# spaceship brick width
+RRW = 75
+# spaceship brick height
+RRH = 25
+# space between two spaceship bricks
+SBT = 2
+
+
+def main():
+    # canvas
+    canvas = make_canvas(CANVAS_WIDTH, CANVAS_HEIGHT, 'Spaceship Attacks')
+    # image
+    gif1 = PhotoImage(file='Images/Deep_space.png')
+    canvas.create_image(0,0, image=gif1, anchor=NW)
+    # ball
+    ball = canvas.create_oval(0,CANVAS_HEIGHT-BALL_SIZE,BALL_SIZE,CANVAS_HEIGHT,fill='#FF3800',outline='black')
+    change_x = STARTING_X
+    change_y = STARTING_Y
+    # paddle
+    pad_x = CANVAS_WIDTH/2 - PAD_SIZE/2
+    pad = canvas.create_rectangle(pad_x,582,pad_x + PAD_SIZE,600,fill='#9F00FF',outline='black',width=2)
+    # spaceship
+    spaceship(canvas)
+
+    while True:
+
+        mouse_x = pad_position(canvas)
+        canvas.moveto(pad, mouse_x, 650)
+
+        canvas.move(ball,change_x,change_y)
+        if hit_top_wall(canvas,ball):
+            change_y *= -1
+        if hit_right_wall(canvas,ball) or hit_left_wall(canvas,ball):
+            change_x *= -1
+
+        if ball_hit_pad(canvas,ball,pad):
+            change_y *= -1
+
+        if ball_hit_spaceship(canvas,ball,pad):
+            change_y *= -1
+
+        canvas.update()
+
+        # pause
+        time.sleep(1/50)
+
+        game_over(canvas,ball)
+
+    canvas.mainloop()
+
+
+def game_over(canvas,ball):
+    if get_coord_y(canvas,ball) > CANVAS_HEIGHT:
+        canvas.create_text(CANVAS_WIDTH/2,CANVAS_HEIGHT/2,font=('',60),text='GAME OVER',fill='#ED2939')
+
+
+def spaceship(canvas):
+    spaceship_not_built = True
+    spaceship_height = 8
+    count = 7
+    const = 7
+
+    # first rect
+    x1 = FIRST_X
+    y1 = FIRST_Y
+    x2 = FIRST_X + RRW 
+    y2 = FIRST_Y + RRH 
+    create_brick(canvas,x1,y1,x2,y2)
+
+    while spaceship_not_built:
+        if y1 < (5 * (RRH + SBT)):
+            if (x2 + RRW) > CANVAS_WIDTH:
+                x1 = FIRST_X
+                y1 = y1 + RRH + SBT
+                x2 = x1 + RRW
+                y2 = y1 + RRH
+                if y1 < (5 * (RRH + SBT)):
+                    create_brick(canvas,x1,y1,x2,y2)
+            else:
+                x1 = x1 + RRW + SBT
+                x2 = x1 + RRW
+                create_brick(canvas,x1,y1,x2,y2)
+        else:
+            start_x = x1
+            start_y = y1
+            while spaceship_height > 0:
+                internal_count = 0
+                for i in range(count * 2 + 1):
+                    internal_count += 1
+                    x1 = x1 + RRW + SBT
+                    x2 = x1 + RRW
+                    create_brick(canvas,x1,y1,x2,y2)
+                spaceship_height -= 1
+                count -= 1
+                x1 = start_x + (const - count) * (RRW + SBT)
+                y1 = start_y + (const - count) * (RRH + SBT)
+                x2 = x1 + RRW
+                y2 = y1 + RRH
+            spaceship_not_built = False
+
+
+def create_brick(canvas,x1,y1,x2,y2):
+    canvas.create_rectangle(x1,y1,x2,y2,fill='#919EAD',outline='#919EAD')
+
+
+def ball_hit_pad(canvas,ball,pad):
+    ball_coord = canvas.coords(ball)
+    ball_x_left = ball_coord[0]
+    ball_y = ball_coord[3]
+    ball_x_right = ball_coord[2]
+    # ball y right is the same as to the left
+
+    pad_coord = canvas.coords(pad)
+    pad_x_left = pad_coord[0]
+    pad_y = pad_coord[1]
+    pad_x_right = pad_coord[2]
+    # pad y right is the same as to the left
+
+    if ball_y == pad_y:
+        return (ball_x_left >= pad_x_left and ball_x_left <= pad_x_right) or (ball_x_right >= pad_x_left and ball_x_right <= pad_x_right) 
+
+
+def ball_hit_spaceship(canvas,ball,pad):
+    ball_coord = canvas.coords(ball)
+    ball_x_1 = ball_coord[0]
+    ball_y_1 = ball_coord[1]
+    ball_x_2 = ball_coord[2]
+    ball_y_2 = ball_coord[3]
+
+    result = canvas.find_overlapping(ball_x_1,ball_y_1,ball_x_2,ball_y_2)
+    if (len(result) > 2) and (pad not in result):
+        canvas.delete(result[2])
+        return True
+
+
+def pad_position(canvas):
+    # paddle will be where mouse is
+    mouse_x = canvas.winfo_pointerx()
+    # in case mouse is out of the window (right of the window), the paddle should stay inside
+    if mouse_x >= CANVAS_WIDTH - PAD_SIZE:
+        mouse_x = CANVAS_WIDTH - PAD_SIZE
+    # in case mouse is out of the window (right of the window), the paddle should stay inside
+    if mouse_x <= 0:
+        mouse_x = 2
+    return mouse_x
+
+
+def hit_bottom_wall(canvas,object):
+    return get_coord_y(canvas,object) > (CANVAS_HEIGHT - BALL_SIZE)
+
+
+def hit_top_wall(canvas,object):
+    return get_coord_y(canvas,object) <= 0
+
+
+def hit_right_wall(canvas,object):
+    return get_coord_x(canvas,object) > (CANVAS_WIDTH - BALL_SIZE)
+
+
+def hit_left_wall(canvas,object):
+    return get_coord_x(canvas,object) <= 0
+
+
+# This fn will find x of the first dot (in upper left corner)
+def get_coord_x(canvas,object):
+    return canvas.coords(object)[0]
+
+
+# This fn will find y of the first dot (in upper left corner)
+def get_coord_y(canvas,object):
+    return canvas.coords(object)[1]
+
+
+def make_canvas(width, height, title):
+    top = tkinter.Tk()
+    top.minsize(width=width, height=height)
+    top.title(title)
+    canvas = tkinter.Canvas(top, width=width + 1, height=height + 1)
+    canvas.pack()
+    return canvas
+
+
+if __name__ == '__main__':
+    main()
